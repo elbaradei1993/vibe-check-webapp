@@ -2,3 +2,4 @@ streamlit
 folium
 geopy
 streamlit-folium
+pycountry
