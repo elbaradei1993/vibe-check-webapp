@@ -225,13 +225,11 @@ def fetch_flood_data():
                 time = disaster['fields']['date'].get('created', 'Unknown time')
 
                 floods.append((lat, lon, severity, location, time))
-            except KeyError as e:
-                # Log the error and skip this disaster entry
-                st.warning(f"Skipping a disaster entry due to missing data: {e}")
+            except KeyError:
+                # Skip this disaster entry
                 continue
         return floods
     else:
-        st.error("Failed to fetch flood data.")
         return []
 
 # Fetch historical flood data from a reliable source
@@ -259,13 +257,11 @@ def fetch_wildfire_data():
                 brightness = float(fields[2])
                 time = fields[5]
                 wildfires.append((lat, lon, brightness, time))
-            except (IndexError, ValueError) as e:
-                # Log the error and skip this entry
-                st.warning(f"Skipping a wildfire entry due to invalid data: {e}")
+            except (IndexError, ValueError):
+                # Skip this entry
                 continue
         return wildfires
     else:
-        st.error("Failed to fetch wildfire data.")
         return []
 
 # Fetch historical wildfire data from a reliable source
@@ -294,7 +290,6 @@ def fetch_hurricane_data():
             hurricanes.append((lat, lon, name, wind_speed))
         return hurricanes
     else:
-        st.error("Failed to fetch hurricane data.")
         return []
 
 # Fetch historical hurricane data from a reliable source
@@ -322,7 +317,6 @@ def fetch_volcano_data():
             volcanoes.append((lat, lon, name, status))
         return volcanoes
     else:
-        st.error("Failed to fetch volcano data.")
         return []
 
 # Fetch historical volcanic eruption data from a reliable source
@@ -388,8 +382,8 @@ def generate_heatmap(show_disasters=False):
         # Fetch and display flood data (real-time or historical)
         floods = fetch_flood_data()
         if not floods:
-            st.warning("No real-time flood data available. Displaying historical data.")
             floods = fetch_historical_flood_data()
+            st.warning("No real-time flood data available. Displaying historical data.")
         for lat, lon, severity, location, time in floods:
             popup = Popup(
                 f"<b>Flood</b><br>"
@@ -407,8 +401,8 @@ def generate_heatmap(show_disasters=False):
         # Fetch and display wildfire data (real-time or historical)
         wildfires = fetch_wildfire_data()
         if not wildfires:
-            st.warning("No real-time wildfire data available. Displaying historical data.")
             wildfires = fetch_historical_wildfire_data()
+            st.warning("No real-time wildfire data available. Displaying historical data.")
         for lat, lon, brightness, time in wildfires:
             popup = Popup(
                 f"<b>Wildfire</b><br>"
@@ -425,8 +419,8 @@ def generate_heatmap(show_disasters=False):
         # Fetch and display hurricane data (real-time or historical)
         hurricanes = fetch_hurricane_data()
         if not hurricanes:
-            st.warning("No real-time hurricane data available. Displaying historical data.")
             hurricanes = fetch_historical_hurricane_data()
+            st.warning("No real-time hurricane data available. Displaying historical data.")
         for lat, lon, name, wind_speed in hurricanes:
             popup = Popup(
                 f"<b>Hurricane</b><br>"
@@ -443,8 +437,8 @@ def generate_heatmap(show_disasters=False):
         # Fetch and display volcano data (real-time or historical)
         volcanoes = fetch_volcano_data()
         if not volcanoes:
-            st.warning("No real-time volcano data available. Displaying historical data.")
             volcanoes = fetch_historical_volcano_data()
+            st.warning("No real-time volcano data available. Displaying historical data.")
         for lat, lon, name, status in volcanoes:
             popup = Popup(
                 f"<b>Volcano</b><br>"
