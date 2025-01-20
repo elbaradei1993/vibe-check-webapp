@@ -4,7 +4,7 @@ from folium import Map, Marker, Popup
 from folium.plugins import HeatMap
 from folium.map import LayerControl
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut
+from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
 from datetime import datetime
 import time
 import requests
@@ -92,12 +92,15 @@ def get_countries():
 # Convert city name to latitude and longitude
 def get_coordinates(city_name):
     try:
+        # Add a delay to avoid hitting the rate limit
+        time.sleep(1)  # 1 second delay between requests
         location = geolocator.geocode(city_name)
         if location:
             return location.latitude, location.longitude
         else:
             return None, None
-    except GeocoderTimedOut:
+    except (GeocoderTimedOut, GeocoderUnavailable) as e:
+        st.error(f"Geocoding service unavailable. Please try again later. Error: {e}")
         return None, None
 
 # Get the area name (address) from latitude and longitude
@@ -119,7 +122,7 @@ def get_area_name(latitude, longitude):
             return area_name
         else:
             return "Unknown area"
-    except GeocoderTimedOut:
+    except (GeocoderTimedOut, GeocoderUnavailable):
         return "Unknown area (geocoding timeout)"
 
 # Database operations
