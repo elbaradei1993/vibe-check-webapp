@@ -1,5 +1,5 @@
 streamlit
+pyttsx3
 folium
-geopy
 streamlit-folium
-pycountry
+pandas
