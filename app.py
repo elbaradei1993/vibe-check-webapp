@@ -1,172 +1,131 @@
 import streamlit as st
-from sqlite3 import connect
-from folium import Map, Marker, Popup
-from folium.plugins import HeatMap, TimestampedGeoJson
-from folium.map import LayerControl
-from datetime import datetime
-import time
 import requests
+import folium
+from folium.plugins import HeatMap
 from streamlit_folium import st_folium
-from io import BytesIO
-import pandas as pd
-from gtts import gTTS
-import os
 
-# Custom CSS for styling
-st.markdown(
-    """
-    <style>
-    .stButton button {
-        background-color: #4CAF50;
-        color: white;
-        border-radius: 5px;
-        padding: 10px 20px;
-        font-size: 16px;
-        border: none;
-        cursor: pointer;
-    }
-    .stButton button:hover {
-        background-color: #45a049;
-    }
-    .card {
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
-        margin: 10px 0;
-        background-color: #f9f9f9;
-    }
-    .card h3 {
-        margin-top: 0;
-    }
-    .card p {
-        margin-bottom: 0;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-# OpenCage Geocoding API Key
-OPENCAGE_API_KEY = "df263d30e41d4d2aa961b5005de6c5be"
-
-# Utility functions for database and geocoding
-def db_query(query, args=()):
-    conn = connect('vibe_bot.db')
-    cursor = conn.cursor()
-    cursor.execute(query, args)
-    conn.commit()
-    result = cursor.fetchall()
-    conn.close()
-    return result
-
-def get_coordinates(city_name):
+# Function to fetch earthquake data (USGS API)
+def fetch_earthquake_data():
     try:
-        time.sleep(1)
-        url = f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&key={OPENCAGE_API_KEY}"
+        url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=100"
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
-            if data['results']:
-                latitude = data['results'][0]['geometry']['lat']
-                longitude = data['results'][0]['geometry']['lng']
-                return latitude, longitude
-        return None, None
+            earthquakes = []
+            for feature in data['features']:
+                magnitude = feature['properties']['mag']
+                if magnitude >= 4:  # You can adjust the threshold here
+                    lat = feature['geometry']['coordinates'][1]
+                    lon = feature['geometry']['coordinates'][0]
+                    earthquakes.append([lat, lon, magnitude])
+            return earthquakes
+        else:
+            return []
     except Exception as e:
-        st.error(f"Error fetching coordinates: {e}")
-        return None, None
+        print(f"Error fetching earthquake data: {e}")
+        return []
 
-# Initialize database tables
-def init_db():
-    db_query('''
-        CREATE TABLE IF NOT EXISTS reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            category TEXT,
-            context TEXT,
-            location TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    db_query('''
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            reputation INTEGER DEFAULT 0
-        )
-    ''')
+# Function to fetch hurricane data (Example NOAA API)
+def fetch_hurricane_data():
+    try:
+        # Replace with actual NOAA API endpoint for hurricanes
+        url = "https://www.nhc.noaa.gov/gis/forecast/archive/"
+        response = requests.get(url)
+        if response.status_code == 200:
+            hurricanes = []
+            # Example parsing (actual parsing depends on the data format)
+            return hurricanes
+        else:
+            return []
+    except Exception as e:
+        print(f"Error fetching hurricane data: {e}")
+        return []
 
-# Social Sharing
-st.sidebar.title("Share on Social Media")
-if st.sidebar.button("Share this App"):
-    st.sidebar.info("Link copied! Share with your friends.")
+# Function to fetch flood data (NWS API)
+def fetch_flood_data():
+    try:
+        url = "https://api.weather.gov/alerts"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            floods = []
+            for feature in data['features']:
+                lat = feature['geometry']['coordinates'][1]
+                lon = feature['geometry']['coordinates'][0]
+                severity = feature['properties']['severity']
+                floods.append([lat, lon, severity])
+            return floods
+        else:
+            return []
+    except Exception as e:
+        print(f"Error fetching flood data: {e}")
+        return []
 
-# Offline Mode
-st.sidebar.title("Offline Mode")
-offline_data = BytesIO()
-if st.sidebar.button("Download Offline Data"):
-    reports = db_query('SELECT * FROM reports')
-    with pd.ExcelWriter(offline_data) as writer:
-        pd.DataFrame(reports, columns=["ID", "User ID", "Category", "Context", "Location", "Timestamp"]).to_excel(writer, index=False)
-    st.sidebar.download_button(
-        label="Download Data",
-        data=offline_data.getvalue(),
-        file_name="vibe_data.xlsx",
-    )
+# Function to fetch tornado data (SPC API)
+def fetch_tornado_data():
+    try:
+        url = "https://www.spc.noaa.gov/products/wwa/"
+        response = requests.get(url)
+        if response.status_code == 200:
+            tornadoes = []
+            return tornadoes
+        else:
+            return []
+    except Exception as e:
+        print(f"Error fetching tornado data: {e}")
+        return []
 
-# Accessibility Features
-st.sidebar.title("Accessibility Options")
-text_to_speech = st.sidebar.checkbox("Enable Text-to-Speech")
-high_contrast = st.sidebar.checkbox("Enable High Contrast")
+# Function to fetch wildfire data (NASA FIRMS API)
+def fetch_wildfire_data():
+    try:
+        url = "https://firms.modaps.eosdis.nasa.gov/api/"
+        response = requests.get(url)
+        if response.status_code == 200:
+            wildfires = []
+            return wildfires
+        else:
+            return []
+    except Exception as e:
+        print(f"Error fetching wildfire data: {e}")
+        return []
 
-if text_to_speech:
-    text = "Welcome to the Vibe Check App!"
-    tts = gTTS(text)
-    tts.save("welcome.mp3")
-    st.audio("welcome.mp3", format="audio/mp3")
+# Function to generate a natural disaster heatmap
+def generate_natural_disaster_heatmap():
+    earthquakes = fetch_earthquake_data()
+    hurricanes = fetch_hurricane_data()
+    floods = fetch_flood_data()
+    tornadoes = fetch_tornado_data()
+    wildfires = fetch_wildfire_data()
 
-# Emergency SOS
-st.sidebar.title("Emergency Integration")
-if st.sidebar.button("Send SOS"):
-    st.error("SOS sent! Help is on the way.")
+    folium_map = folium.Map(location=[20, 0], zoom_start=2)  # World view
 
-# Generate Heatmap
-def generate_heatmap(center_location=None):
-    reports = db_query('SELECT category, location FROM reports')
-    folium_map = Map(location=center_location or [0, 0], zoom_start=10 if center_location else 2)
-    for category, location in reports:
-        lat, lon = map(float, location.split(","))
-        Marker([lat, lon], popup=f"Category: {category}").add_to(folium_map)
-    LayerControl().add_to(folium_map)
+    # Adding earthquake data to the heatmap
+    heat_data = [[e[0], e[1], e[2] * 10] for e in earthquakes]  # Scaling magnitude
+    HeatMap(heat_data).add_to(folium_map)
+
+    # Adding hurricane data to the heatmap
+    heat_data = [[h[0], h[1], h[2] * 10] for h in hurricanes]  # Scaling intensity
+    HeatMap(heat_data).add_to(folium_map)
+
+    # Adding flood data to the heatmap
+    heat_data = [[f[0], f[1], f[2] * 10] for f in floods]  # Scaling severity
+    HeatMap(heat_data).add_to(folium_map)
+
+    # Adding tornado data to the heatmap
+    heat_data = [[t[0], t[1], t[2] * 10] for t in tornadoes]  # Scaling strength
+    HeatMap(heat_data).add_to(folium_map)
+
+    # Adding wildfire data to the heatmap
+    heat_data = [[w[0], w[1], w[2] * 10] for w in wildfires]  # Scaling intensity
+    HeatMap(heat_data).add_to(folium_map)
+
     return folium_map
 
-# Submit Report
-def submit_report(user_id):
-    st.subheader("Submit a Vibe Report")
-    categories = ['Crowded', 'Noisy', 'Festive', 'Calm', 'Suspicious']
-    category = st.selectbox("Select a category", categories)
-    city_name = st.text_input("Enter the city name")
-    context = st.text_area("Enter context notes")
-    if st.button("Submit Report"):
-        lat, lon = get_coordinates(city_name)
-        if lat and lon:
-            db_query('INSERT INTO reports (user_id, category, context, location) VALUES (?, ?, ?, ?)', (user_id, category, context, f"{lat},{lon}"))
-            st.success("Report submitted successfully!")
+# Streamlit App to display the map
+def display_map():
+    st.title("Natural Disaster Heatmap")
+    folium_map = generate_natural_disaster_heatmap()
+    st_folium(folium_map, width=700, height=500)
 
-# Main Menu
-def main_menu():
-    st.title("Vibe Check App")
-    init_db()
-
-    user_id = st.number_input("Enter your user ID", value=123)
-    st.write(f"Welcome, User {user_id}!")
-
-    if st.button("Submit a Report"):
-        submit_report(user_id)
-    else:
-        st.subheader("Interactive Heatmap")
-        country = st.text_input("Enter a country to center the map")
-        center = get_coordinates(country) if country else None
-        folium_map = generate_heatmap(center)
-        st_folium(folium_map, width=700, height=500)
-
-if __name__ == '__main__':
-    main_menu()
+if __name__ == "__main__":
+    display_map()
