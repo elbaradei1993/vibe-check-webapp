@@ -243,11 +243,16 @@ def fetch_wildfire_data():
         wildfires = []
         for line in data[1:]:  # Skip header
             fields = line.split(',')
-            lat = float(fields[0])
-            lon = float(fields[1])
-            brightness = float(fields[2])
-            time = fields[5]
-            wildfires.append((lat, lon, brightness, time))
+            try:
+                lat = float(fields[0])
+                lon = float(fields[1])
+                brightness = float(fields[2])
+                time = fields[5]
+                wildfires.append((lat, lon, brightness, time))
+            except (IndexError, ValueError) as e:
+                # Log the error and skip this entry
+                st.warning(f"Skipping a wildfire entry due to invalid data: {e}")
+                continue
         return wildfires
     else:
         st.error("Failed to fetch wildfire data.")
