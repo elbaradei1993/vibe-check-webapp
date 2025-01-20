@@ -5,12 +5,10 @@ from folium.plugins import HeatMap
 from folium.map import LayerControl
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
-from collections import defaultdict, Counter
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
-import os
 import requests
-from streamlit_folium import st_folium  # Import st_folium
+from streamlit_folium import st_folium
 
 # Custom CSS for styling
 st.markdown(
@@ -199,6 +197,25 @@ def fetch_earthquake_data():
         st.error("Failed to fetch earthquake data.")
         return []
 
+# Fetch real-time flood data from ReliefWeb API
+def fetch_flood_data():
+    url = "https://api.reliefweb.int/v1/disasters?appname=VibesCheck&profile=list&preset=latest&query[value]=flood"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        floods = []
+        for disaster in data['data']:
+            lat = disaster['fields']['country'][0]['location']['lat']
+            lon = disaster['fields']['country'][0]['location']['lon']
+            severity = disaster['fields']['status']
+            location = disaster['fields']['country'][0]['name']
+            time = disaster['fields']['date']['created']
+            floods.append((lat, lon, severity, location, time))
+        return floods
+    else:
+        st.error("Failed to fetch flood data.")
+        return []
+
 # Generate Heatmap
 def generate_heatmap(show_disasters=False):
     reports = db_query('SELECT category, location FROM reports')
@@ -233,9 +250,9 @@ def generate_heatmap(show_disasters=False):
 
     # Add natural disaster data if enabled
     if show_disasters:
+        # Fetch and display earthquake data
         earthquakes = fetch_earthquake_data()
         for lat, lon, magnitude, place, time in earthquakes:
-            # Add a marker with a popup for each earthquake
             popup = Popup(
                 f"<b>Earthquake</b><br>"
                 f"Magnitude: {magnitude}<br>"
@@ -247,6 +264,22 @@ def generate_heatmap(show_disasters=False):
                 location=[lat, lon],
                 popup=popup,
                 icon=None,  # Use default icon
+            ).add_to(folium_map)
+
+        # Fetch and display flood data
+        floods = fetch_flood_data()
+        for lat, lon, severity, location, time in floods:
+            popup = Popup(
+                f"<b>Flood</b><br>"
+                f"Severity: {severity}<br>"
+                f"Location: {location}<br>"
+                f"Time: {time}",
+                max_width=300,
+            )
+            Marker(
+                location=[lat, lon],
+                popup=popup,
+                icon=None,  # Use default icon or a custom flood icon
             ).add_to(folium_map)
 
     LayerControl().add_to(folium_map)
