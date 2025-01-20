@@ -51,13 +51,18 @@ def fetch_flood_data():
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
-            floods = []
-            for feature in data['features']:
-                lat = feature['geometry']['coordinates'][1]
-                lon = feature['geometry']['coordinates'][0]
-                severity = feature['properties']['severity']
-                floods.append([lat, lon, severity])
-            return floods
+            if data and 'features' in data:
+                floods = []
+                for feature in data['features']:
+                    if 'geometry' in feature and 'coordinates' in feature['geometry']:
+                        lat = feature['geometry']['coordinates'][1]
+                        lon = feature['geometry']['coordinates'][0]
+                        severity = feature['properties'].get('severity', 'Unknown')
+                        floods.append([lat, lon, severity])
+                return floods
+            else:
+                st.warning("No flood data available.")
+                return []
         else:
             st.error("Error fetching flood data.")
             return []
