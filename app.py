@@ -10,6 +10,40 @@ from datetime import datetime, timedelta
 import time
 import os
 
+# Custom CSS for styling
+st.markdown(
+    """
+    <style>
+    .stButton button {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 16px;
+        border: none;
+        cursor: pointer;
+    }
+    .stButton button:hover {
+        background-color: #45a049;
+    }
+    .card {
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        margin: 10px 0;
+        background-color: #f9f9f9;
+    }
+    .card h3 {
+        margin-top: 0;
+    }
+    .card p {
+        margin-bottom: 0;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Initialize the geocoder
 geolocator = Nominatim(user_agent="vibe_bot")
 
@@ -122,7 +156,7 @@ def submit_report(user_id):
     city_name = st.text_input("Enter the city name")
     context = st.text_area("Enter context notes")
 
-    if st.button("Submit"):
+    if st.button("Submit Report", key="submit_report"):
         if not category or not city_name or not context:
             st.error("All fields are required!")
         else:
@@ -196,10 +230,18 @@ def list_reports():
         report_id, category, location = report
         latitude, longitude = location.split(',')
         area_name = get_area_name(latitude, longitude)
-        st.write(f"**Report ID:** {report_id}")
-        st.write(f"**Category:** {category}")
-        st.write(f"**Location:** {area_name}")
-        st.write("---")
+        
+        # Display report as a card
+        st.markdown(
+            f"""
+            <div class="card">
+                <h3>Report ID: {report_id}</h3>
+                <p><strong>Category:</strong> {category}</p>
+                <p><strong>Location:</strong> {area_name}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 # Main Menu
 def main_menu():
@@ -209,14 +251,28 @@ def main_menu():
     user_id = st.number_input("Enter your user ID", value=123)
     st.write(f"Welcome, User {user_id}!")
 
-    menu = ["Submit a Report", "Generate Heatmap", "List Recent Reports"]
-    choice = st.sidebar.selectbox("Menu", menu)
+    # Create columns for buttons
+    col1, col2, col3 = st.columns(3)
 
-    if choice == "Submit a Report":
+    with col1:
+        if st.button("Submit a Report", key="submit_report_button"):
+            st.session_state.page = "submit_report"
+    with col2:
+        if st.button("Generate Heatmap", key="generate_heatmap_button"):
+            st.session_state.page = "generate_heatmap"
+    with col3:
+        if st.button("List Recent Reports", key="list_reports_button"):
+            st.session_state.page = "list_reports"
+
+    # Display the selected page
+    if "page" not in st.session_state:
+        st.session_state.page = "submit_report"
+
+    if st.session_state.page == "submit_report":
         submit_report(user_id)
-    elif choice == "Generate Heatmap":
+    elif st.session_state.page == "generate_heatmap":
         generate_heatmap()
-    elif choice == "List Recent Reports":
+    elif st.session_state.page == "list_reports":
         list_reports()
 
 if __name__ == '__main__':
