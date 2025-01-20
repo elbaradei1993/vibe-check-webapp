@@ -145,13 +145,24 @@ def vote_on_report(report_id, vote_type):
     else:
         st.error(f"Report with ID {report_id} does not exist.")
 
-# Generate Heatmap
-def generate_heatmap(center_location=None):
+# Generate Heatmap with color-coded markers based on vibe category
+def generate_vibe_heatmap(center_location=None):
     reports = db_query('SELECT category, location FROM reports')
     folium_map = Map(location=center_location or [0, 0], zoom_start=10 if center_location else 2)
+
+    category_colors = {
+        'Crowded': 'red',
+        'Noisy': 'yellow',
+        'Festive': 'green',
+        'Calm': 'blue',
+        'Suspicious': 'purple'
+    }
+
     for category, location in reports:
         lat, lon = map(float, location.split(","))
-        Marker([lat, lon], popup=f"Category: {category}").add_to(folium_map)
+        color = category_colors.get(category, 'gray')  # Default to gray if category not found
+        Marker([lat, lon], popup=f"Category: {category}", icon=folium.Icon(color=color)).add_to(folium_map)
+
     LayerControl().add_to(folium_map)
     return folium_map
 
@@ -166,11 +177,11 @@ def main_menu():
     if st.button("Submit a Report"):
         submit_report(user_id)
     else:
-        st.subheader("Interactive Heatmap")
+        st.subheader("Interactive Vibe Heatmap")
         country = st.text_input("Enter a country to center the map")
         center = get_coordinates(country) if country else None
-        folium_map = generate_heatmap(center)
-        st_folium(folium_map, width=700, height=500)
+        vibe_map = generate_vibe_heatmap(center)
+        st_folium(vibe_map, width=700, height=500)
 
 if __name__ == '__main__':
     main_menu()
