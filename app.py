@@ -9,7 +9,8 @@ import requests
 from streamlit_folium import st_folium
 from io import BytesIO
 import pandas as pd
-import pyttsx3
+from gtts import gTTS
+import os
 
 # Custom CSS for styling
 st.markdown(
@@ -117,9 +118,10 @@ text_to_speech = st.sidebar.checkbox("Enable Text-to-Speech")
 high_contrast = st.sidebar.checkbox("Enable High Contrast")
 
 if text_to_speech:
-    engine = pyttsx3.init()
-    engine.say("Welcome to the Vibe Check App!")
-    engine.runAndWait()
+    text = "Welcome to the Vibe Check App!"
+    tts = gTTS(text)
+    tts.save("welcome.mp3")
+    st.audio("welcome.mp3", format="audio/mp3")
 
 # Emergency SOS
 st.sidebar.title("Emergency Integration")
