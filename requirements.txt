@@ -1,5 +1,5 @@
 streamlit
-pyttsx3
+gTTS
 folium
 streamlit-folium
 pandas
