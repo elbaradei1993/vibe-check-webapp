@@ -3,8 +3,6 @@ from sqlite3 import connect
 from folium import Map, Marker, Popup
 from folium.plugins import HeatMap
 from folium.map import LayerControl
-from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
 from datetime import datetime
 import time
 import requests
@@ -44,8 +42,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Initialize the geocoder
-geolocator = Nominatim(user_agent="vibe_bot")
+# OpenCage Geocoding API Key
+OPENCAGE_API_KEY = "df263d30e41d4d2aa961b5005de6c5be"  # Your OpenCage API key
 
 # Hardcoded list of countries
 def get_countries():
@@ -89,21 +87,30 @@ def get_countries():
         "Zambia", "Zimbabwe"
     ]
 
-# Convert city name to latitude and longitude
+# Convert city name to latitude and longitude using OpenCage Geocoding API
 def get_coordinates(city_name):
     try:
         # Add a delay to avoid hitting the rate limit
         time.sleep(1)  # 1 second delay between requests
-        location = geolocator.geocode(city_name)
-        if location:
-            return location.latitude, location.longitude
+        url = f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&key={OPENCAGE_API_KEY}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data['results']:
+                latitude = data['results'][0]['geometry']['lat']
+                longitude = data['results'][0]['geometry']['lng']
+                return latitude, longitude
+            else:
+                st.warning(f"No results found for {city_name}.")
+                return None, None
         else:
+            st.error(f"Geocoding service unavailable. Please try again later. Error: {response.status_code}")
             return None, None
-    except (GeocoderTimedOut, GeocoderUnavailable) as e:
+    except Exception as e:
         st.error(f"Geocoding service unavailable. Please try again later. Error: {e}")
         return None, None
 
-# Get the area name (address) from latitude and longitude
+# Get the area name (address) from latitude and longitude using OpenCage Geocoding API
 def get_area_name(latitude, longitude):
     location_key = f"{latitude},{longitude}"
     cached_area = db_query('SELECT area_name FROM area_names WHERE location = ?', (location_key,))
@@ -112,18 +119,23 @@ def get_area_name(latitude, longitude):
 
     try:
         time.sleep(1)  # Delay to avoid rate limits
-        location = geolocator.reverse((latitude, longitude), exactly_one=True, timeout=10)
-        if location:
-            area_name = location.address
-            db_query('''
-                INSERT OR IGNORE INTO area_names (location, area_name)
-                VALUES (?, ?)
-            ''', (location_key, area_name))
-            return area_name
+        url = f"https://api.opencagedata.com/geocode/v1/json?q={latitude}+{longitude}&key={OPENCAGE_API_KEY}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            if data['results']:
+                area_name = data['results'][0]['formatted']
+                db_query('''
+                    INSERT OR IGNORE INTO area_names (location, area_name)
+                    VALUES (?, ?)
+                ''', (location_key, area_name))
+                return area_name
+            else:
+                return "Unknown area"
         else:
-            return "Unknown area"
-    except (GeocoderTimedOut, GeocoderUnavailable):
-        return "Unknown area (geocoding timeout)"
+            return "Unknown area (geocoding error)"
+    except Exception as e:
+        return f"Unknown area (geocoding error: {e})"
 
 # Database operations
 def db_query(query, args=()):
