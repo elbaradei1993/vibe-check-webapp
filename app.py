@@ -9,6 +9,7 @@ from collections import defaultdict, Counter
 from datetime import datetime, timedelta
 import time
 import os
+from streamlit_folium import st_folium  # Import st_folium
 
 # Custom CSS for styling
 st.markdown(
