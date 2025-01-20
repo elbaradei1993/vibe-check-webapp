@@ -302,18 +302,9 @@ def main_menu():
     user_id = st.number_input("Enter your user ID", value=123)
     st.write(f"Welcome, User {user_id}!")
 
-    # Create columns for buttons
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        if st.button("Submit a Report", key="submit_report_button"):
-            st.session_state.page = "submit_report"
-    with col2:
-        if st.button("Generate Heatmap", key="generate_heatmap_button"):
-            st.session_state.page = "generate_heatmap"
-    with col3:
-        if st.button("List Recent Reports", key="list_reports_button"):
-            st.session_state.page = "list_reports"
+    # Create a column for the submit report button
+    if st.button("Submit a Report", key="submit_report_button"):
+        st.session_state.page = "submit_report"
 
     # Display the selected page
     if "page" not in st.session_state:
@@ -321,32 +312,29 @@ def main_menu():
 
     if st.session_state.page == "submit_report":
         submit_report(user_id)
-    elif st.session_state.page == "generate_heatmap":
-        show_disasters = st.checkbox("Show Natural Disasters", key="show_disasters")
-        selected_country = st.selectbox("Select a country", get_countries(), key="country_select")
-        if selected_country:
-            latitude, longitude = get_coordinates(selected_country)
-            if latitude is not None and longitude is not None:
-                folium_map = generate_heatmap(center_location=[latitude, longitude], show_disasters=show_disasters)
-                st_folium(folium_map, width=700, height=500)
-    elif st.session_state.page == "list_reports":
-        list_reports()
     else:
-        # Home Page with Heatmap and Search Bar
+        # Home Page with Heatmap, Search Bar, and Recent Reports
         st.subheader("Interactive Heatmap")
         show_disasters = st.checkbox("Show Natural Disasters", key="show_disasters_home")
+        selected_country = st.selectbox("Select a country", get_countries(), key="country_select")
         search_query = st.text_input("Search for a city or country")
-        if search_query:
-            folium_map = generate_heatmap(show_disasters=show_disasters, search_query=search_query)
-            st_folium(folium_map, width=700, height=500)
+
+        # Generate heatmap based on selected country or search query
+        if selected_country or search_query:
+            if selected_country:
+                latitude, longitude = get_coordinates(selected_country)
+            else:
+                latitude, longitude = get_coordinates(search_query)
+            
+            if latitude is not None and longitude is not None:
+                folium_map = generate_heatmap(center_location=[latitude, longitude], show_disasters=show_disasters, search_query=search_query)
+                st_folium(folium_map, width=700, height=500)
         else:
             folium_map = generate_heatmap(show_disasters=show_disasters)
             st_folium(folium_map, width=700, height=500)
 
-    # Back button
-    if st.session_state.page != "home":
-        if st.button("Back to Home"):
-            st.session_state.page = "home"
+        # Display recent reports
+        list_reports()
 
 if __name__ == '__main__':
     main_menu()
