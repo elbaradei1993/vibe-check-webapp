@@ -54,10 +54,8 @@ def get_coordinates(city_name):
         if location:
             return location.latitude, location.longitude
         else:
-            st.error(f"Could not find coordinates for {city_name}. Please check the city name.")
             return None, None
     except GeocoderTimedOut:
-        st.error("Geocoding service timed out. Please try again.")
         return None, None
 
 def get_area_name(latitude, longitude):
@@ -194,7 +192,6 @@ def fetch_earthquake_data():
             earthquakes.append((lat, lon, magnitude, place, time))
         return earthquakes
     else:
-        st.error("Failed to fetch earthquake data.")
         return []
 
 # Fetch real-time flood data from ReliefWeb API
@@ -383,7 +380,6 @@ def generate_heatmap(show_disasters=False):
         floods = fetch_flood_data()
         if not floods:
             floods = fetch_historical_flood_data()
-            st.warning("No real-time flood data available. Displaying historical data.")
         for lat, lon, severity, location, time in floods:
             popup = Popup(
                 f"<b>Flood</b><br>"
@@ -402,7 +398,6 @@ def generate_heatmap(show_disasters=False):
         wildfires = fetch_wildfire_data()
         if not wildfires:
             wildfires = fetch_historical_wildfire_data()
-            st.warning("No real-time wildfire data available. Displaying historical data.")
         for lat, lon, brightness, time in wildfires:
             popup = Popup(
                 f"<b>Wildfire</b><br>"
@@ -420,7 +415,6 @@ def generate_heatmap(show_disasters=False):
         hurricanes = fetch_hurricane_data()
         if not hurricanes:
             hurricanes = fetch_historical_hurricane_data()
-            st.warning("No real-time hurricane data available. Displaying historical data.")
         for lat, lon, name, wind_speed in hurricanes:
             popup = Popup(
                 f"<b>Hurricane</b><br>"
@@ -438,7 +432,6 @@ def generate_heatmap(show_disasters=False):
         volcanoes = fetch_volcano_data()
         if not volcanoes:
             volcanoes = fetch_historical_volcano_data()
-            st.warning("No real-time volcano data available. Displaying historical data.")
         for lat, lon, name, status in volcanoes:
             popup = Popup(
                 f"<b>Volcano</b><br>"
