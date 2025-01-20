@@ -178,9 +178,8 @@ def submit_report(user_id):
 
                 st.success("Report submitted successfully!")
 
-# Live Vibe Map (Heatmap)
+# Generate Heatmap
 def generate_heatmap():
-    st.subheader("Generate Heatmap")
     reports = db_query('SELECT category, location FROM reports')
     
     color_mapping = {
@@ -212,11 +211,7 @@ def generate_heatmap():
             ).add_to(folium_map)
 
     LayerControl().add_to(folium_map)
-
-    map_file = 'heatmap.html'
-    folium_map.save(map_file)
-    st.success(f"Heatmap saved to {map_file}")
-    st.write("Open the heatmap in a new tab to view it.")
+    return folium_map
 
 # List Reports
 def list_reports():
@@ -266,14 +261,30 @@ def main_menu():
 
     # Display the selected page
     if "page" not in st.session_state:
-        st.session_state.page = "submit_report"
+        st.session_state.page = "home"
 
     if st.session_state.page == "submit_report":
         submit_report(user_id)
     elif st.session_state.page == "generate_heatmap":
-        generate_heatmap()
+        folium_map = generate_heatmap()
+        st_folium(folium_map, width=700, height=500)
     elif st.session_state.page == "list_reports":
         list_reports()
+    else:
+        # Home Page with Heatmap and Search Bar
+        st.subheader("Interactive Heatmap")
+        folium_map = generate_heatmap()
+        st_folium(folium_map, width=700, height=500)
+
+        # Search Bar
+        st.subheader("Search for a Location")
+        search_query = st.text_input("Enter a city or country")
+        if search_query:
+            latitude, longitude = get_coordinates(search_query)
+            if latitude is not None and longitude is not None:
+                folium_map = Map(location=[latitude, longitude], zoom_start=10)
+                HeatMap([[latitude, longitude]]).add_to(folium_map)
+                st_folium(folium_map, width=700, height=500)
 
 if __name__ == '__main__':
     main_menu()
