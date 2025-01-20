@@ -210,6 +210,50 @@ def generate_heatmap(center_location=None, show_disasters=False, search_query=No
     LayerControl().add_to(folium_map)
     return folium_map
 
+# Submit Report
+def submit_report(user_id):
+    st.subheader("Submit a Vibe Report")
+    categories = ['Crowded', 'Noisy', 'Festive', 'Calm', 'Suspicious']
+    category = st.selectbox("Select a category", categories)
+    city_name = st.text_input("Enter the city name")
+    context = st.text_area("Enter context notes")
+
+    if st.button("Submit Report", key="submit_report"):
+        if not category or not city_name or not context:
+            st.error("All fields are required!")
+        else:
+            latitude, longitude = get_coordinates(city_name)
+            if latitude is not None and longitude is not None:
+                db_query('''
+                    INSERT INTO reports (user_id, category, context, location)
+                    VALUES (?, ?, ?, ?)
+                ''', (user_id, category, context, f"{latitude},{longitude}"))
+                st.success("Report submitted successfully!")
+
+# List Reports
+def list_reports():
+    st.subheader("Recent Reports")
+    reports = db_query('SELECT id, category, location FROM reports')
+    if not reports:
+        st.info("No reports found.")
+        return
+
+    for report in reports:
+        report_id, category, location = report
+        latitude, longitude = location.split(',')
+        area_name = get_area_name(latitude, longitude)
+        
+        st.markdown(
+            f"""
+            <div class="card">
+                <h3>Report ID: {report_id}</h3>
+                <p><strong>Category:</strong> {category}</p>
+                <p><strong>Location:</strong> {area_name}</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
 # Main Menu
 def main_menu():
     st.title("Vibe Check App")
