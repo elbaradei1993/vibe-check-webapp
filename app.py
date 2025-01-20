@@ -4,7 +4,7 @@ import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 from sqlite3 import connect
-from datetime import datetime
+from datetime import datetime, timedelta  # Added timedelta import
 
 # Initialize database tables (if not already present)
 def init_db():
@@ -73,7 +73,7 @@ def generate_vibe_map(vibe_category=None, time_frame=None):
     
     if time_frame:
         if time_frame == "24 hours":
-            time_limit = datetime.now() - timedelta(days=1)
+            time_limit = datetime.now() - timedelta(days=1)  # Now we can use timedelta
             reports = [r for r in reports if datetime.strptime(r[2], '%Y-%m-%d %H:%M:%S') > time_limit]
 
     folium_map = folium.Map(location=[0, 0], zoom_start=2)
