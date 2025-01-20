@@ -9,6 +9,7 @@ from datetime import datetime
 import time
 import requests
 from streamlit_folium import st_folium
+import pycountry
 
 # Custom CSS for styling
 st.markdown(
@@ -47,8 +48,12 @@ st.markdown(
 # Initialize the geocoder
 geolocator = Nominatim(user_agent="vibe_bot")
 
+# Get a list of world countries
+def get_countries():
+    return [country.name for country in pycountry.countries]
+
+# Convert city name to latitude and longitude
 def get_coordinates(city_name):
-    """Convert city name to latitude and longitude."""
     try:
         location = geolocator.geocode(city_name)
         if location:
@@ -58,24 +63,18 @@ def get_coordinates(city_name):
     except GeocoderTimedOut:
         return None, None
 
+# Get the area name (address) from latitude and longitude
 def get_area_name(latitude, longitude):
-    """Get the area name (address) from latitude and longitude."""
     location_key = f"{latitude},{longitude}"
-
-    # Check if the area name is already cached
     cached_area = db_query('SELECT area_name FROM area_names WHERE location = ?', (location_key,))
     if cached_area:
         return cached_area[0][0]
 
     try:
-        # Add a delay to avoid hitting the rate limit
-        time.sleep(1)  # 1 second delay between requests
-
-        # Increase the timeout for the Nominatim API
+        time.sleep(1)  # Delay to avoid rate limits
         location = geolocator.reverse((latitude, longitude), exactly_one=True, timeout=10)
         if location:
             area_name = location.address
-            # Cache the area name in the database
             db_query('''
                 INSERT OR IGNORE INTO area_names (location, area_name)
                 VALUES (?, ?)
@@ -115,66 +114,11 @@ def init_db():
         )
     ''')
     db_query('''
-        CREATE TABLE IF NOT EXISTS subscriptions (
-            user_id INTEGER,
-            category TEXT,
-            UNIQUE(user_id, category)
-        )
-    ''')
-    db_query('''
-        CREATE TABLE IF NOT EXISTS votes (
-            user_id INTEGER,
-            report_id INTEGER,
-            vote_type TEXT
-        )
-    ''')
-    db_query('''
-        CREATE TABLE IF NOT EXISTS badges (
-            user_id INTEGER,
-            badge_name TEXT,
-            UNIQUE(user_id, badge_name)
-        )
-    ''')
-    db_query('''
         CREATE TABLE IF NOT EXISTS area_names (
             location TEXT PRIMARY KEY,
             area_name TEXT
         )
     ''')
-
-# Helper function to get subscribers for a category
-def get_subscribers(category):
-    return db_query('SELECT user_id FROM subscriptions WHERE category = ?', (category,))
-
-# Vibe Reporting
-def submit_report(user_id):
-    st.subheader("Submit a Vibe Report")
-    categories = ['Crowded', 'Noisy', 'Festive', 'Calm', 'Suspicious']
-    category = st.selectbox("Select a category", categories)
-    city_name = st.text_input("Enter the city name")
-    context = st.text_area("Enter context notes")
-
-    if st.button("Submit Report", key="submit_report"):
-        if not category or not city_name or not context:
-            st.error("All fields are required!")
-        else:
-            # Convert city name to coordinates
-            latitude, longitude = get_coordinates(city_name)
-            if latitude is not None and longitude is not None:
-                # Save the report to the database
-                db_query('''
-                    INSERT INTO reports (user_id, category, context, location)
-                    VALUES (?, ?, ?, ?)
-                ''', (user_id, category, context, f"{latitude},{longitude}"))
-
-                # Award reputation points
-                db_query('''
-                    UPDATE users
-                    SET reputation = reputation + 10
-                    WHERE user_id = ?
-                ''', (user_id,))
-
-                st.success("Report submitted successfully!")
 
 # Fetch real-time earthquake data from USGS
 def fetch_earthquake_data():
@@ -194,140 +138,8 @@ def fetch_earthquake_data():
     else:
         return []
 
-# Fetch real-time flood data from ReliefWeb API
-def fetch_flood_data():
-    url = "https://api.reliefweb.int/v1/disasters?appname=VibesCheck&profile=list&preset=latest&query[value]=flood"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        floods = []
-        for disaster in data['data']:
-            try:
-                # Check if the disaster has a country and location
-                if 'country' in disaster['fields'] and disaster['fields']['country']:
-                    country_data = disaster['fields']['country'][0]
-                    if 'location' in country_data:
-                        lat = country_data['location']['lat']
-                        lon = country_data['location']['lon']
-                    else:
-                        # Skip if location data is missing
-                        continue
-                else:
-                    # Skip if country data is missing
-                    continue
-
-                # Extract other fields
-                severity = disaster['fields'].get('status', 'Unknown')
-                location = country_data.get('name', 'Unknown location')
-                time = disaster['fields']['date'].get('created', 'Unknown time')
-
-                floods.append((lat, lon, severity, location, time))
-            except KeyError:
-                # Skip this disaster entry
-                continue
-        return floods
-    else:
-        return []
-
-# Fetch historical flood data from a reliable source
-def fetch_historical_flood_data():
-    # Example: Use a CSV file or API with historical flood data
-    # Replace this with actual historical data source
-    historical_floods = [
-        (28.6139, 77.2090, "Severe", "Delhi, India", "2022-07-15"),
-        (34.0522, -118.2437, "Moderate", "Los Angeles, USA", "2021-12-10"),
-    ]
-    return historical_floods
-
-# Fetch real-time wildfire data from NASA FIRMS
-def fetch_wildfire_data():
-    url = "https://firms.modaps.eosdis.nasa.gov/api/country/csv/VIIRS_SNPP_NRT/USA/1"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.text.splitlines()
-        wildfires = []
-        for line in data[1:]:  # Skip header
-            fields = line.split(',')
-            try:
-                lat = float(fields[0])
-                lon = float(fields[1])
-                brightness = float(fields[2])
-                time = fields[5]
-                wildfires.append((lat, lon, brightness, time))
-            except (IndexError, ValueError):
-                # Skip this entry
-                continue
-        return wildfires
-    else:
-        return []
-
-# Fetch historical wildfire data from a reliable source
-def fetch_historical_wildfire_data():
-    # Example: Use a CSV file or API with historical wildfire data
-    # Replace this with actual historical data source
-    historical_wildfires = [
-        (34.0522, -118.2437, 300.5, "2023-09-01"),  # Example: Los Angeles, USA
-        (37.7749, -122.4194, 450.0, "2023-08-15"),  # Example: San Francisco, USA
-    ]
-    return historical_wildfires
-
-# Fetch real-time hurricane data from NOAA
-def fetch_hurricane_data():
-    url = "https://www.nhc.noaa.gov/gtwo.xml"
-    response = requests.get(url)
-    if response.status_code == 200:
-        import xml.etree.ElementTree as ET
-        root = ET.fromstring(response.content)
-        hurricanes = []
-        for storm in root.findall('.//storm'):
-            name = storm.find('name').text
-            lat = float(storm.find('latitude').text)
-            lon = float(storm.find('longitude').text)
-            wind_speed = int(storm.find('windSpeed').text)
-            hurricanes.append((lat, lon, name, wind_speed))
-        return hurricanes
-    else:
-        return []
-
-# Fetch historical hurricane data from a reliable source
-def fetch_historical_hurricane_data():
-    # Example: Use a CSV file or API with historical hurricane data
-    # Replace this with actual historical data source
-    historical_hurricanes = [
-        (25.7617, -80.1918, "Hurricane Andrew", 165),
-        (29.9511, -90.0715, "Hurricane Katrina", 175),
-    ]
-    return historical_hurricanes
-
-# Fetch real-time volcanic eruption data from Smithsonian
-def fetch_volcano_data():
-    url = "https://volcano.si.edu/feeds/volcanoes.json"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        volcanoes = []
-        for volcano in data:
-            lat = volcano['latitude']
-            lon = volcano['longitude']
-            name = volcano['name']
-            status = volcano['status']
-            volcanoes.append((lat, lon, name, status))
-        return volcanoes
-    else:
-        return []
-
-# Fetch historical volcanic eruption data from a reliable source
-def fetch_historical_volcano_data():
-    # Example: Use a CSV file or API with historical volcanic eruption data
-    # Replace this with actual historical data source
-    historical_volcanoes = [
-        (-14.2711, -75.1126, "Nevado del Ruiz", "Active"),
-        (19.4211, -155.2869, "Kilauea", "Erupting"),
-    ]
-    return historical_volcanoes
-
 # Generate Heatmap
-def generate_heatmap(show_disasters=False):
+def generate_heatmap(center_location=None, show_disasters=False, search_query=None):
     reports = db_query('SELECT category, location FROM reports')
     
     color_mapping = {
@@ -338,8 +150,13 @@ def generate_heatmap(show_disasters=False):
         'Suspicious': 'orange'
     }
 
-    folium_map = Map(location=[0, 0], zoom_start=2)
+    # Initialize the map
+    if center_location:
+        folium_map = Map(location=center_location, zoom_start=10)
+    else:
+        folium_map = Map(location=[0, 0], zoom_start=2)
 
+    # Add vibes reports to the heatmap
     for category, color in color_mapping.items():
         category_reports = [report for report in reports if report[0] == category]
         heatmap_data = []
@@ -360,7 +177,6 @@ def generate_heatmap(show_disasters=False):
 
     # Add natural disaster data if enabled
     if show_disasters:
-        # Fetch and display earthquake data
         earthquakes = fetch_earthquake_data()
         for lat, lon, magnitude, place, time in earthquakes:
             popup = Popup(
@@ -373,105 +189,26 @@ def generate_heatmap(show_disasters=False):
             Marker(
                 location=[lat, lon],
                 popup=popup,
-                icon=None,  # Use default icon
+                icon=None,
             ).add_to(folium_map)
 
-        # Fetch and display flood data (real-time or historical)
-        floods = fetch_flood_data()
-        if not floods:
-            floods = fetch_historical_flood_data()
-        for lat, lon, severity, location, time in floods:
-            popup = Popup(
-                f"<b>Flood</b><br>"
-                f"Severity: {severity}<br>"
-                f"Location: {location}<br>"
-                f"Time: {time}",
-                max_width=300,
-            )
+    # Add search query marker if provided
+    if search_query:
+        latitude, longitude = get_coordinates(search_query)
+        if latitude is not None and longitude is not None:
             Marker(
-                location=[lat, lon],
-                popup=popup,
-                icon=None,  # Use default icon or a custom flood icon
+                location=[latitude, longitude],
+                popup=f"<b>Searched Location:</b> {search_query}",
+                icon=None,
             ).add_to(folium_map)
 
-        # Fetch and display wildfire data (real-time or historical)
-        wildfires = fetch_wildfire_data()
-        if not wildfires:
-            wildfires = fetch_historical_wildfire_data()
-        for lat, lon, brightness, time in wildfires:
-            popup = Popup(
-                f"<b>Wildfire</b><br>"
-                f"Brightness: {brightness}<br>"
-                f"Time: {time}",
-                max_width=300,
-            )
-            Marker(
-                location=[lat, lon],
-                popup=popup,
-                icon=None,  # Use default icon or a custom wildfire icon
-            ).add_to(folium_map)
-
-        # Fetch and display hurricane data (real-time or historical)
-        hurricanes = fetch_hurricane_data()
-        if not hurricanes:
-            hurricanes = fetch_historical_hurricane_data()
-        for lat, lon, name, wind_speed in hurricanes:
-            popup = Popup(
-                f"<b>Hurricane</b><br>"
-                f"Name: {name}<br>"
-                f"Wind Speed: {wind_speed} mph",
-                max_width=300,
-            )
-            Marker(
-                location=[lat, lon],
-                popup=popup,
-                icon=None,  # Use default icon or a custom hurricane icon
-            ).add_to(folium_map)
-
-        # Fetch and display volcano data (real-time or historical)
-        volcanoes = fetch_volcano_data()
-        if not volcanoes:
-            volcanoes = fetch_historical_volcano_data()
-        for lat, lon, name, status in volcanoes:
-            popup = Popup(
-                f"<b>Volcano</b><br>"
-                f"Name: {name}<br>"
-                f"Status: {status}",
-                max_width=300,
-            )
-            Marker(
-                location=[lat, lon],
-                popup=popup,
-                icon=None,  # Use default icon or a custom volcano icon
-            ).add_to(folium_map)
+            # Check if there are any vibes reports for the searched location
+            reports_in_area = db_query('SELECT category, context FROM reports WHERE location = ?', (f"{latitude},{longitude}",))
+            if not reports_in_area:
+                st.warning(f"No vibes reports have been submitted for {search_query} yet.")
 
     LayerControl().add_to(folium_map)
     return folium_map
-
-# List Reports
-def list_reports():
-    st.subheader("Recent Reports")
-    reports = db_query('SELECT id, category, location FROM reports')
-    if not reports:
-        st.info("No reports found.")
-        return
-
-    for report in reports:
-        report_id, category, location = report
-        latitude, longitude = location.split(',')
-        area_name = get_area_name(latitude, longitude)
-        
-        # Display report as a card
-        st.markdown(
-            f"""
-            <div class="card">
-                <h3>Report ID: {report_id}</h3>
-                <p><strong>Category:</strong> {category}</p>
-                <p><strong>Location:</strong> {area_name}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
 # Main Menu
 def main_menu():
@@ -502,26 +239,30 @@ def main_menu():
         submit_report(user_id)
     elif st.session_state.page == "generate_heatmap":
         show_disasters = st.checkbox("Show Natural Disasters", key="show_disasters")
-        folium_map = generate_heatmap(show_disasters=show_disasters)
-        st_folium(folium_map, width=700, height=500)
+        selected_country = st.selectbox("Select a country", get_countries(), key="country_select")
+        if selected_country:
+            latitude, longitude = get_coordinates(selected_country)
+            if latitude is not None and longitude is not None:
+                folium_map = generate_heatmap(center_location=[latitude, longitude], show_disasters=show_disasters)
+                st_folium(folium_map, width=700, height=500)
     elif st.session_state.page == "list_reports":
         list_reports()
     else:
         # Home Page with Heatmap and Search Bar
         st.subheader("Interactive Heatmap")
         show_disasters = st.checkbox("Show Natural Disasters", key="show_disasters_home")
-        folium_map = generate_heatmap(show_disasters=show_disasters)
-        st_folium(folium_map, width=700, height=500)
-
-        # Search Bar
-        st.subheader("Search for a Location")
-        search_query = st.text_input("Enter a city or country")
+        search_query = st.text_input("Search for a city or country")
         if search_query:
-            latitude, longitude = get_coordinates(search_query)
-            if latitude is not None and longitude is not None:
-                folium_map = Map(location=[latitude, longitude], zoom_start=10)
-                HeatMap([[latitude, longitude]]).add_to(folium_map)
-                st_folium(folium_map, width=700, height=500)
+            folium_map = generate_heatmap(show_disasters=show_disasters, search_query=search_query)
+            st_folium(folium_map, width=700, height=500)
+        else:
+            folium_map = generate_heatmap(show_disasters=show_disasters)
+            st_folium(folium_map, width=700, height=500)
+
+    # Back button
+    if st.session_state.page != "home":
+        if st.button("Back to Home"):
+            st.session_state.page = "home"
 
 if __name__ == '__main__':
     main_menu()
