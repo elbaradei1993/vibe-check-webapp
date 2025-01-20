@@ -6,7 +6,7 @@ from folium.map import LayerControl
 from datetime import datetime
 import time
 import requests
-from streamlit_folium import st_folium
+from streamlit_folium import st_folium, folium_static
 
 # Custom CSS for styling
 st.markdown(
