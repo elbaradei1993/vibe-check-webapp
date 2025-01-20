@@ -269,8 +269,8 @@ def fetch_historical_wildfire_data():
     # Example: Use a CSV file or API with historical wildfire data
     # Replace this with actual historical data source
     historical_wildfires = [
-        (34.0522, -118.2437, 300.5, "2022-09-01"),
-        (37.7749, -122.4194, 450.0, "2021-08-15"),
+        (34.0522, -118.2437, 300.5, "2023-09-01"),  # Example: Los Angeles, USA
+        (37.7749, -122.4194, 450.0, "2023-08-15"),  # Example: San Francisco, USA
     ]
     return historical_wildfires
 
