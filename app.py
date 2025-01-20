@@ -180,7 +180,7 @@ def fetch_earthquake_data():
 
 # Generate Heatmap
 def generate_heatmap(center_location=None, show_disasters=False, search_query=None):
-    reports = db_query('SELECT category, location FROM reports')
+    reports = db_query('SELECT category, location, context FROM reports')
     
     color_mapping = {
         'Crowded': 'red',
@@ -201,7 +201,7 @@ def generate_heatmap(center_location=None, show_disasters=False, search_query=No
         category_reports = [report for report in reports if report[0] == category]
         heatmap_data = []
         for report in category_reports:
-            _, location = report
+            _, location, context = report
             latitude, longitude = map(float, location.split(','))
             heatmap_data.append([latitude, longitude])
         
@@ -236,6 +236,7 @@ def generate_heatmap(center_location=None, show_disasters=False, search_query=No
     if search_query:
         latitude, longitude = get_coordinates(search_query)
         if latitude is not None and longitude is not None:
+            # Add a marker for the searched location
             Marker(
                 location=[latitude, longitude],
                 popup=f"<b>Searched Location:</b> {search_query}",
@@ -244,7 +245,15 @@ def generate_heatmap(center_location=None, show_disasters=False, search_query=No
 
             # Check if there are any vibes reports for the searched location
             reports_in_area = db_query('SELECT category, context FROM reports WHERE location = ?', (f"{latitude},{longitude}",))
-            if not reports_in_area:
+            if reports_in_area:
+                for report in reports_in_area:
+                    category, context = report
+                    Marker(
+                        location=[latitude, longitude],
+                        popup=f"<b>Report:</b> {category}<br><b>Context:</b> {context}",
+                        icon=None,
+                    ).add_to(folium_map)
+            else:
                 st.warning(f"No vibes reports have been submitted for {search_query} yet.")
 
     LayerControl().add_to(folium_map)
@@ -269,30 +278,6 @@ def submit_report(user_id):
                     VALUES (?, ?, ?, ?)
                 ''', (user_id, category, context, f"{latitude},{longitude}"))
                 st.success("Report submitted successfully!")
-
-# List Reports
-def list_reports():
-    st.subheader("Recent Reports")
-    reports = db_query('SELECT id, category, location FROM reports')
-    if not reports:
-        st.info("No reports found.")
-        return
-
-    for report in reports:
-        report_id, category, location = report
-        latitude, longitude = location.split(',')
-        area_name = get_area_name(latitude, longitude)
-        
-        st.markdown(
-            f"""
-            <div class="card">
-                <h3>Report ID: {report_id}</h3>
-                <p><strong>Category:</strong> {category}</p>
-                <p><strong>Location:</strong> {area_name}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
 # Main Menu
 def main_menu():
@@ -332,9 +317,6 @@ def main_menu():
         else:
             folium_map = generate_heatmap(show_disasters=show_disasters)
             st_folium(folium_map, width=700, height=500)
-
-        # Display recent reports
-        list_reports()
 
 if __name__ == '__main__':
     main_menu()
