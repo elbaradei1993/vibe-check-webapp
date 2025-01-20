@@ -4,7 +4,7 @@ import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
 from sqlite3 import connect
-from datetime import datetime, timedelta  # Added timedelta import
+from datetime import datetime, timedelta
 
 # Initialize database tables (if not already present)
 def init_db():
@@ -49,7 +49,6 @@ def submit_report(user_id):
 # Function to fetch coordinates using OpenCage API
 def get_coordinates(city_name):
     try:
-        # OpenCage API Key
         api_key = 'df263d30e41d4d2aa961b5005de6c5be'
         url = f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&key={api_key}"
         response = requests.get(url)
@@ -73,7 +72,7 @@ def generate_vibe_map(vibe_category=None, time_frame=None):
     
     if time_frame:
         if time_frame == "24 hours":
-            time_limit = datetime.now() - timedelta(days=1)  # Now we can use timedelta
+            time_limit = datetime.now() - timedelta(days=1)
             reports = [r for r in reports if datetime.strptime(r[2], '%Y-%m-%d %H:%M:%S') > time_limit]
 
     folium_map = folium.Map(location=[0, 0], zoom_start=2)
@@ -96,10 +95,16 @@ def get_vibe_color(category):
 
 # Function to handle voting on reports
 def vote_on_report(report_id, vote_type):
-    if vote_type == 'upvote':
-        db_query('''UPDATE reports SET upvotes = upvotes + 1 WHERE id = ?''', (report_id,))
-    elif vote_type == 'downvote':
-        db_query('''UPDATE reports SET downvotes = downvotes + 1 WHERE id = ?''', (report_id,))
+    # Check if the report exists before attempting to update the votes
+    report_exists = db_query('''SELECT COUNT(*) FROM reports WHERE id = ?''', (report_id,))
+    
+    if report_exists[0][0] > 0:  # If the report exists
+        if vote_type == 'upvote':
+            db_query('''UPDATE reports SET upvotes = upvotes + 1 WHERE id = ?''', (report_id,))
+        elif vote_type == 'downvote':
+            db_query('''UPDATE reports SET downvotes = downvotes + 1 WHERE id = ?''', (report_id,))
+    else:
+        st.error(f"Report with ID {report_id} does not exist.")
 
 # Function to handle gamification (reputation)
 def update_reputation(user_id):
@@ -126,10 +131,12 @@ def display_vibe_features():
 
     st.sidebar.subheader("Gamification")
     st.sidebar.write(f"Your Reputation: {get_user_reputation(user_id)}")
+    
+    report_id = st.sidebar.number_input("Enter Report ID to Vote", min_value=1)  # Dynamic report ID input
     if st.sidebar.button("Upvote Report"):
-        vote_on_report(1, 'upvote')
+        vote_on_report(report_id, 'upvote')
     elif st.sidebar.button("Downvote Report"):
-        vote_on_report(1, 'downvote')
+        vote_on_report(report_id, 'downvote')
 
 # Function to get user's reputation
 def get_user_reputation(user_id):
