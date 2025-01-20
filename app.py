@@ -13,7 +13,21 @@ import os
 # Initialize the geocoder
 geolocator = Nominatim(user_agent="vibe_bot")
 
+def get_coordinates(city_name):
+    """Convert city name to latitude and longitude."""
+    try:
+        location = geolocator.geocode(city_name)
+        if location:
+            return location.latitude, location.longitude
+        else:
+            st.error(f"Could not find coordinates for {city_name}. Please check the city name.")
+            return None, None
+    except GeocoderTimedOut:
+        st.error("Geocoding service timed out. Please try again.")
+        return None, None
+
 def get_area_name(latitude, longitude):
+    """Get the area name (address) from latitude and longitude."""
     location_key = f"{latitude},{longitude}"
 
     # Check if the area name is already cached
@@ -105,28 +119,30 @@ def submit_report(user_id):
     st.subheader("Submit a Vibe Report")
     categories = ['Crowded', 'Noisy', 'Festive', 'Calm', 'Suspicious']
     category = st.selectbox("Select a category", categories)
-    latitude = st.number_input("Enter latitude", value=0.0)
-    longitude = st.number_input("Enter longitude", value=0.0)
+    city_name = st.text_input("Enter the city name")
     context = st.text_area("Enter context notes")
 
     if st.button("Submit"):
-        if not category or not latitude or not longitude or not context:
+        if not category or not city_name or not context:
             st.error("All fields are required!")
         else:
-            # Save the report to the database
-            db_query('''
-                INSERT INTO reports (user_id, category, context, location)
-                VALUES (?, ?, ?, ?)
-            ''', (user_id, category, context, f"{latitude},{longitude}"))
+            # Convert city name to coordinates
+            latitude, longitude = get_coordinates(city_name)
+            if latitude is not None and longitude is not None:
+                # Save the report to the database
+                db_query('''
+                    INSERT INTO reports (user_id, category, context, location)
+                    VALUES (?, ?, ?, ?)
+                ''', (user_id, category, context, f"{latitude},{longitude}"))
 
-            # Award reputation points
-            db_query('''
-                UPDATE users
-                SET reputation = reputation + 10
-                WHERE user_id = ?
-            ''', (user_id,))
+                # Award reputation points
+                db_query('''
+                    UPDATE users
+                    SET reputation = reputation + 10
+                    WHERE user_id = ?
+                ''', (user_id,))
 
-            st.success("Report submitted successfully!")
+                st.success("Report submitted successfully!")
 
 # Live Vibe Map (Heatmap)
 def generate_heatmap():
