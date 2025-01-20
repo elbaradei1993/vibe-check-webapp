@@ -6,7 +6,7 @@ from folium.map import LayerControl
 from datetime import datetime
 import time
 import requests
-from streamlit_folium import st_folium, folium_static
+from streamlit_folium import folium_static
 
 # Custom CSS for styling
 st.markdown(
@@ -325,10 +325,10 @@ def main_menu():
             
             if latitude is not None and longitude is not None:
                 folium_map = generate_heatmap(center_location=[latitude, longitude], show_disasters=show_disasters, search_query=search_query)
-                st_folium(folium_map, width=700, height=500)
+                folium_static(folium_map, width=700, height=500)
         else:
             folium_map = generate_heatmap(show_disasters=show_disasters)
-            st_folium(folium_map, width=700, height=500)
+            folium_static(folium_map, width=700, height=500)
 
 if __name__ == '__main__':
     main_menu()
