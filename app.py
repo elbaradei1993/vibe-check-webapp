@@ -3,192 +3,139 @@ import requests
 import folium
 from folium.plugins import HeatMap
 from streamlit_folium import st_folium
+from sqlite3 import connect
+from datetime import datetime
 
-# Function to fetch earthquake data from USGS API
-def fetch_earthquake_data():
+# Initialize database tables (if not already present)
+def init_db():
+    db_query('''CREATE TABLE IF NOT EXISTS reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        category TEXT,
+        context TEXT,
+        location TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        upvotes INTEGER DEFAULT 0,
+        downvotes INTEGER DEFAULT 0
+    )''')
+    db_query('''CREATE TABLE IF NOT EXISTS users (
+        user_id INTEGER PRIMARY KEY,
+        reputation INTEGER DEFAULT 0
+    )''')
+
+def db_query(query, args=()):
+    conn = connect('vibe_bot.db')
+    cursor = conn.cursor()
+    cursor.execute(query, args)
+    conn.commit()
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+# Function to submit a vibe report
+def submit_report(user_id):
+    st.subheader("Submit a Vibe Report")
+    categories = ['Crowded', 'Noisy', 'Festive', 'Calm', 'Suspicious']
+    category = st.selectbox("Select a category", categories)
+    city_name = st.text_input("Enter the city name")
+    context = st.text_area("Enter context notes")
+    if st.button("Submit Report"):
+        lat, lon = get_coordinates(city_name)
+        if lat and lon:
+            db_query('''INSERT INTO reports (user_id, category, context, location) VALUES (?, ?, ?, ?)''', 
+                     (user_id, category, context, f"{lat},{lon}"))
+            st.success("Report submitted successfully!")
+
+# Function to fetch coordinates using OpenCage API
+def get_coordinates(city_name):
     try:
-        url = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=100"
+        # OpenCage API Key
+        api_key = 'df263d30e41d4d2aa961b5005de6c5be'
+        url = f"https://api.opencagedata.com/geocode/v1/json?q={city_name}&key={api_key}"
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
-            earthquakes = []
-            for feature in data['features']:
-                magnitude = feature['properties']['mag']
-                if magnitude >= 4:  # Filter for significant earthquakes
-                    lat = feature['geometry']['coordinates'][1]
-                    lon = feature['geometry']['coordinates'][0]
-                    earthquakes.append([lat, lon, magnitude, feature['properties']['place']])
-            return earthquakes
-        return []
+            if data['results']:
+                latitude = data['results'][0]['geometry']['lat']
+                longitude = data['results'][0]['geometry']['lng']
+                return latitude, longitude
+        return None, None
     except Exception as e:
-        return []
+        st.error(f"Error fetching coordinates: {e}")
+        return None, None
 
-# Function to fetch hurricane data from NOAA (mockup example)
-def fetch_hurricane_data():
-    try:
-        # You can replace this with a real NOAA/NHC API endpoint for hurricane data
-        url = "https://www.nhc.noaa.gov/gis/forecast/archive/"
-        response = requests.get(url)
-        if response.status_code == 200:
-            hurricanes = []
-            # Here, you'll need to parse the actual data returned by the API
-            return hurricanes  # Mockup data
-        return []
-    except Exception as e:
-        return []
+# Function to generate a live vibe map with filters
+def generate_vibe_map(vibe_category=None, time_frame=None):
+    reports = db_query('''SELECT category, location, timestamp FROM reports WHERE 1''')
+    
+    if vibe_category:
+        reports = [r for r in reports if r[0] == vibe_category]
+    
+    if time_frame:
+        if time_frame == "24 hours":
+            time_limit = datetime.now() - timedelta(days=1)
+            reports = [r for r in reports if datetime.strptime(r[2], '%Y-%m-%d %H:%M:%S') > time_limit]
 
-# Function to fetch flood data from NWS API
-def fetch_flood_data():
-    try:
-        url = "https://api.weather.gov/alerts"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            floods = []
-            if data and 'features' in data:
-                for feature in data['features']:
-                    if 'geometry' in feature and 'coordinates' in feature['geometry']:
-                        lat = feature['geometry']['coordinates'][1]
-                        lon = feature['geometry']['coordinates'][0]
-                        severity = feature['properties'].get('severity', 'Unknown')
-                        event = feature['properties'].get('event', 'Flood')
-                        description = feature['properties'].get('headline', 'No description available.')
-                        floods.append([lat, lon, severity, event, description])
-            return floods
-        return []
-    except Exception as e:
-        return []
-
-# Function to fetch wildfire data from NASA FIRMS API
-def fetch_wildfire_data():
-    try:
-        url = "https://firms.modaps.eosdis.nasa.gov/api/"
-        response = requests.get(url)
-        if response.status_code == 200:
-            wildfires = []
-            # Parse the actual wildfire data here
-            return wildfires  # Mockup data
-        return []
-    except Exception as e:
-        return []
-
-# Function to fetch tornado data from NWS API
-def fetch_tornado_data():
-    try:
-        url = "https://api.weather.gov/alerts/active?area=US&eventType=tornado"
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            tornadoes = []
-            if data and 'features' in data:
-                for feature in data['features']:
-                    lat = feature['geometry']['coordinates'][1]
-                    lon = feature['geometry']['coordinates'][0]
-                    severity = feature['properties'].get('severity', 'Unknown')
-                    event = feature['properties'].get('event', 'Tornado')
-                    description = feature['properties'].get('headline', 'No description available.')
-                    tornadoes.append([lat, lon, severity, event, description])
-            return tornadoes
-        return []
-    except Exception as e:
-        return []
-
-# Function to fetch volcanic eruption data (SO2 emissions) from Smithsonian Institution
-def fetch_volcanic_eruption_data():
-    try:
-        url = "https://volcano.si.edu/feeds/SO2.csv"
-        response = requests.get(url)
-        if response.status_code == 200:
-            eruptions = []
-            # Parse the volcanic eruption data
-            return eruptions  # Mockup data
-        return []
-    except Exception as e:
-        return []
-
-# Function to generate a natural disaster heatmap
-def generate_natural_disaster_heatmap():
-    # Fetch data for all disaster types
-    earthquakes = fetch_earthquake_data()
-    hurricanes = fetch_hurricane_data()
-    floods = fetch_flood_data()
-    wildfires = fetch_wildfire_data()
-    tornadoes = fetch_tornado_data()
-    eruptions = fetch_volcanic_eruption_data()
-
-    # Create a map object with OpenStreetMap as the base layer
-    folium_map = folium.Map(location=[20, 0], zoom_start=2)  # Centering on the globe
-
-    # Adding earthquake data to the map
-    if earthquakes:
-        for e in earthquakes:
-            lat, lon, mag, location = e
-            folium.Marker(
-                [lat, lon],
-                popup=f"Earthquake\nMagnitude: {mag}\nLocation: {location}",
-            ).add_to(folium_map)
-        heat_data = [[e[0], e[1], e[2] * 10] for e in earthquakes]  # Scaling magnitude
-        HeatMap(heat_data).add_to(folium_map)
-
-    # Adding hurricane data to the map
-    if hurricanes:
-        for h in hurricanes:
-            folium.Marker(
-                [h[0], h[1]],
-                popup="Hurricane Details",
-            ).add_to(folium_map)
-        heat_data = [[h[0], h[1], 10] for h in hurricanes]  # Scaling intensity
-        HeatMap(heat_data).add_to(folium_map)
-
-    # Adding flood data to the map
-    if floods:
-        for f in floods:
-            lat, lon, severity, event, description = f
-            folium.Marker(
-                [lat, lon],
-                popup=f"{event}\nSeverity: {severity}\nDescription: {description}",
-            ).add_to(folium_map)
-        heat_data = [[f[0], f[1], 10] for f in floods]  # Floods typically don't have a magnitude
-        HeatMap(heat_data).add_to(folium_map)
-
-    # Adding wildfire data to the map
-    if wildfires:
-        for w in wildfires:
-            folium.Marker(
-                [w[0], w[1]],
-                popup="Wildfire Details",
-            ).add_to(folium_map)
-        heat_data = [[w[0], w[1], 10] for w in wildfires]  # Scaling intensity
-        HeatMap(heat_data).add_to(folium_map)
-
-    # Adding tornado data to the map
-    if tornadoes:
-        for t in tornadoes:
-            lat, lon, severity, event, description = t
-            folium.Marker(
-                [lat, lon],
-                popup=f"{event}\nSeverity: {severity}\nDescription: {description}",
-            ).add_to(folium_map)
-        heat_data = [[t[0], t[1], 10] for t in tornadoes]  # Scaling intensity
-        HeatMap(heat_data).add_to(folium_map)
-
-    # Adding volcanic eruption data to the map
-    if eruptions:
-        for e in eruptions:
-            folium.Marker(
-                [e[0], e[1]],
-                popup="Volcanic Eruption Details",
-            ).add_to(folium_map)
-        heat_data = [[e[0], e[1], 10] for e in eruptions]  # Scaling intensity
-        HeatMap(heat_data).add_to(folium_map)
+    folium_map = folium.Map(location=[0, 0], zoom_start=2)
+    for category, location, timestamp in reports:
+        lat, lon = map(float, location.split(","))
+        color = get_vibe_color(category)
+        folium.Marker([lat, lon], popup=f"Category: {category} | Time: {timestamp}", icon=folium.Icon(color=color)).add_to(folium_map)
 
     return folium_map
 
-# Streamlit App to display the map
-def display_map():
-    st.title("Natural Disaster Tracker")
-    folium_map = generate_natural_disaster_heatmap()
-    st_folium(folium_map, width=700, height=500)
+def get_vibe_color(category):
+    colors = {
+        'Crowded': 'red',
+        'Noisy': 'blue',
+        'Festive': 'green',
+        'Calm': 'purple',
+        'Suspicious': 'orange'
+    }
+    return colors.get(category, 'gray')
+
+# Function to handle voting on reports
+def vote_on_report(report_id, vote_type):
+    if vote_type == 'upvote':
+        db_query('''UPDATE reports SET upvotes = upvotes + 1 WHERE id = ?''', (report_id,))
+    elif vote_type == 'downvote':
+        db_query('''UPDATE reports SET downvotes = downvotes + 1 WHERE id = ?''', (report_id,))
+
+# Function to handle gamification (reputation)
+def update_reputation(user_id):
+    user_reports = db_query('''SELECT COUNT(*) FROM reports WHERE user_id = ?''', (user_id,))
+    reputation = user_reports[0][0]  # Assign reputation based on number of reports
+    db_query('''UPDATE users SET reputation = ? WHERE user_id = ?''', (reputation, user_id))
+
+# Displaying features on Streamlit
+def display_vibe_features():
+    st.title("Vibe Check App")
+    
+    user_id = st.number_input("Enter your user ID", value=123)
+    
+    st.sidebar.subheader("Submit a Vibe Report")
+    if st.sidebar.button("Submit Report"):
+        submit_report(user_id)
+
+    vibe_category = st.sidebar.selectbox("Filter by Vibe Type", ["All", "Crowded", "Noisy", "Festive", "Calm", "Suspicious"])
+    time_frame = st.sidebar.selectbox("Filter by Time Frame", ["All", "24 hours", "This Week"])
+    
+    st.subheader("Live Vibe Map")
+    vibe_map = generate_vibe_map(vibe_category if vibe_category != "All" else None, time_frame if time_frame != "All" else None)
+    st_folium(vibe_map, width=700, height=500)
+
+    st.sidebar.subheader("Gamification")
+    st.sidebar.write(f"Your Reputation: {get_user_reputation(user_id)}")
+    if st.sidebar.button("Upvote Report"):
+        vote_on_report(1, 'upvote')
+    elif st.sidebar.button("Downvote Report"):
+        vote_on_report(1, 'downvote')
+
+# Function to get user's reputation
+def get_user_reputation(user_id):
+    reputation = db_query('''SELECT reputation FROM users WHERE user_id = ?''', (user_id,))
+    return reputation[0][0] if reputation else 0
 
 if __name__ == "__main__":
-    display_map()
+    init_db()
+    display_vibe_features()
