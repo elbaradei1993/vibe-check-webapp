@@ -1,6 +1,6 @@
 import streamlit as st
 from sqlite3 import connect
-from folium import Map
+from folium import Map, Marker, Popup
 from folium.plugins import HeatMap
 from folium.map import LayerControl
 from geopy.geocoders import Nominatim
@@ -192,7 +192,8 @@ def fetch_earthquake_data():
             lon = feature['geometry']['coordinates'][0]
             magnitude = feature['properties']['mag']
             place = feature['properties']['place']
-            earthquakes.append((lat, lon, magnitude, place))
+            time = datetime.fromtimestamp(feature['properties']['time'] / 1000).strftime('%Y-%m-%d %H:%M:%S')
+            earthquakes.append((lat, lon, magnitude, place, time))
         return earthquakes
     else:
         st.error("Failed to fetch earthquake data.")
@@ -233,14 +234,19 @@ def generate_heatmap(show_disasters=False):
     # Add natural disaster data if enabled
     if show_disasters:
         earthquakes = fetch_earthquake_data()
-        for lat, lon, magnitude, place in earthquakes:
-            HeatMap(
-                [[lat, lon]],
-                name=f"Earthquake: {magnitude} Magnitude",
-                gradient={'0.4': 'black'},  # Use black for disasters
-                radius=15,
-                blur=10,
-                max_zoom=1,
+        for lat, lon, magnitude, place, time in earthquakes:
+            # Add a marker with a popup for each earthquake
+            popup = Popup(
+                f"<b>Earthquake</b><br>"
+                f"Magnitude: {magnitude}<br>"
+                f"Location: {place}<br>"
+                f"Time: {time}",
+                max_width=300,
+            )
+            Marker(
+                location=[lat, lon],
+                popup=popup,
+                icon=None,  # Use default icon
             ).add_to(folium_map)
 
     LayerControl().add_to(folium_map)
