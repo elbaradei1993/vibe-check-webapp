@@ -9,6 +9,7 @@ from collections import defaultdict, Counter
 from datetime import datetime, timedelta
 import time
 import os
+import requests
 from streamlit_folium import st_folium  # Import st_folium
 
 # Custom CSS for styling
@@ -179,8 +180,26 @@ def submit_report(user_id):
 
                 st.success("Report submitted successfully!")
 
+# Fetch real-time earthquake data from USGS
+def fetch_earthquake_data():
+    url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        earthquakes = []
+        for feature in data['features']:
+            lat = feature['geometry']['coordinates'][1]
+            lon = feature['geometry']['coordinates'][0]
+            magnitude = feature['properties']['mag']
+            place = feature['properties']['place']
+            earthquakes.append((lat, lon, magnitude, place))
+        return earthquakes
+    else:
+        st.error("Failed to fetch earthquake data.")
+        return []
+
 # Generate Heatmap
-def generate_heatmap():
+def generate_heatmap(show_disasters=False):
     reports = db_query('SELECT category, location FROM reports')
     
     color_mapping = {
@@ -206,6 +225,19 @@ def generate_heatmap():
                 heatmap_data,
                 name=category,
                 gradient={'0.4': color},
+                radius=15,
+                blur=10,
+                max_zoom=1,
+            ).add_to(folium_map)
+
+    # Add natural disaster data if enabled
+    if show_disasters:
+        earthquakes = fetch_earthquake_data()
+        for lat, lon, magnitude, place in earthquakes:
+            HeatMap(
+                [[lat, lon]],
+                name=f"Earthquake: {magnitude} Magnitude",
+                gradient={'0.4': 'black'},  # Use black for disasters
                 radius=15,
                 blur=10,
                 max_zoom=1,
@@ -267,14 +299,16 @@ def main_menu():
     if st.session_state.page == "submit_report":
         submit_report(user_id)
     elif st.session_state.page == "generate_heatmap":
-        folium_map = generate_heatmap()
+        show_disasters = st.checkbox("Show Natural Disasters", key="show_disasters")
+        folium_map = generate_heatmap(show_disasters=show_disasters)
         st_folium(folium_map, width=700, height=500)
     elif st.session_state.page == "list_reports":
         list_reports()
     else:
         # Home Page with Heatmap and Search Bar
         st.subheader("Interactive Heatmap")
-        folium_map = generate_heatmap()
+        show_disasters = st.checkbox("Show Natural Disasters", key="show_disasters_home")
+        folium_map = generate_heatmap(show_disasters=show_disasters)
         st_folium(folium_map, width=700, height=500)
 
         # Search Bar
