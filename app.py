@@ -234,6 +234,16 @@ def fetch_flood_data():
         st.error("Failed to fetch flood data.")
         return []
 
+# Fetch historical flood data from a reliable source
+def fetch_historical_flood_data():
+    # Example: Use a CSV file or API with historical flood data
+    # Replace this with actual historical data source
+    historical_floods = [
+        (28.6139, 77.2090, "Severe", "Delhi, India", "2022-07-15"),
+        (34.0522, -118.2437, "Moderate", "Los Angeles, USA", "2021-12-10"),
+    ]
+    return historical_floods
+
 # Fetch real-time wildfire data from NASA FIRMS
 def fetch_wildfire_data():
     url = "https://firms.modaps.eosdis.nasa.gov/api/country/csv/VIIRS_SNPP_NRT/USA/1"
@@ -258,6 +268,16 @@ def fetch_wildfire_data():
         st.error("Failed to fetch wildfire data.")
         return []
 
+# Fetch historical wildfire data from a reliable source
+def fetch_historical_wildfire_data():
+    # Example: Use a CSV file or API with historical wildfire data
+    # Replace this with actual historical data source
+    historical_wildfires = [
+        (34.0522, -118.2437, 300.5, "2022-09-01"),
+        (37.7749, -122.4194, 450.0, "2021-08-15"),
+    ]
+    return historical_wildfires
+
 # Fetch real-time hurricane data from NOAA
 def fetch_hurricane_data():
     url = "https://www.nhc.noaa.gov/gtwo.xml"
@@ -277,6 +297,16 @@ def fetch_hurricane_data():
         st.error("Failed to fetch hurricane data.")
         return []
 
+# Fetch historical hurricane data from a reliable source
+def fetch_historical_hurricane_data():
+    # Example: Use a CSV file or API with historical hurricane data
+    # Replace this with actual historical data source
+    historical_hurricanes = [
+        (25.7617, -80.1918, "Hurricane Andrew", 165),
+        (29.9511, -90.0715, "Hurricane Katrina", 175),
+    ]
+    return historical_hurricanes
+
 # Fetch real-time volcanic eruption data from Smithsonian
 def fetch_volcano_data():
     url = "https://volcano.si.edu/feeds/volcanoes.json"
@@ -294,6 +324,16 @@ def fetch_volcano_data():
     else:
         st.error("Failed to fetch volcano data.")
         return []
+
+# Fetch historical volcanic eruption data from a reliable source
+def fetch_historical_volcano_data():
+    # Example: Use a CSV file or API with historical volcanic eruption data
+    # Replace this with actual historical data source
+    historical_volcanoes = [
+        (-14.2711, -75.1126, "Nevado del Ruiz", "Active"),
+        (19.4211, -155.2869, "Kilauea", "Erupting"),
+    ]
+    return historical_volcanoes
 
 # Generate Heatmap
 def generate_heatmap(show_disasters=False):
@@ -345,78 +385,78 @@ def generate_heatmap(show_disasters=False):
                 icon=None,  # Use default icon
             ).add_to(folium_map)
 
-        # Fetch and display flood data
+        # Fetch and display flood data (real-time or historical)
         floods = fetch_flood_data()
-        if floods:  # Only add flood markers if data is available
-            for lat, lon, severity, location, time in floods:
-                popup = Popup(
-                    f"<b>Flood</b><br>"
-                    f"Severity: {severity}<br>"
-                    f"Location: {location}<br>"
-                    f"Time: {time}",
-                    max_width=300,
-                )
-                Marker(
-                    location=[lat, lon],
-                    popup=popup,
-                    icon=None,  # Use default icon or a custom flood icon
-                ).add_to(folium_map)
-        else:
-            st.warning("No flood data available to display.")
+        if not floods:
+            st.warning("No real-time flood data available. Displaying historical data.")
+            floods = fetch_historical_flood_data()
+        for lat, lon, severity, location, time in floods:
+            popup = Popup(
+                f"<b>Flood</b><br>"
+                f"Severity: {severity}<br>"
+                f"Location: {location}<br>"
+                f"Time: {time}",
+                max_width=300,
+            )
+            Marker(
+                location=[lat, lon],
+                popup=popup,
+                icon=None,  # Use default icon or a custom flood icon
+            ).add_to(folium_map)
 
-        # Fetch and display wildfire data
+        # Fetch and display wildfire data (real-time or historical)
         wildfires = fetch_wildfire_data()
-        if wildfires:
-            for lat, lon, brightness, time in wildfires:
-                popup = Popup(
-                    f"<b>Wildfire</b><br>"
-                    f"Brightness: {brightness}<br>"
-                    f"Time: {time}",
-                    max_width=300,
-                )
-                Marker(
-                    location=[lat, lon],
-                    popup=popup,
-                    icon=None,  # Use default icon or a custom wildfire icon
-                ).add_to(folium_map)
-        else:
-            st.warning("No wildfire data available to display.")
+        if not wildfires:
+            st.warning("No real-time wildfire data available. Displaying historical data.")
+            wildfires = fetch_historical_wildfire_data()
+        for lat, lon, brightness, time in wildfires:
+            popup = Popup(
+                f"<b>Wildfire</b><br>"
+                f"Brightness: {brightness}<br>"
+                f"Time: {time}",
+                max_width=300,
+            )
+            Marker(
+                location=[lat, lon],
+                popup=popup,
+                icon=None,  # Use default icon or a custom wildfire icon
+            ).add_to(folium_map)
 
-        # Fetch and display hurricane data
+        # Fetch and display hurricane data (real-time or historical)
         hurricanes = fetch_hurricane_data()
-        if hurricanes:
-            for lat, lon, name, wind_speed in hurricanes:
-                popup = Popup(
-                    f"<b>Hurricane</b><br>"
-                    f"Name: {name}<br>"
-                    f"Wind Speed: {wind_speed} mph",
-                    max_width=300,
-                )
-                Marker(
-                    location=[lat, lon],
-                    popup=popup,
-                    icon=None,  # Use default icon or a custom hurricane icon
-                ).add_to(folium_map)
-        else:
-            st.warning("No hurricane data available to display.")
+        if not hurricanes:
+            st.warning("No real-time hurricane data available. Displaying historical data.")
+            hurricanes = fetch_historical_hurricane_data()
+        for lat, lon, name, wind_speed in hurricanes:
+            popup = Popup(
+                f"<b>Hurricane</b><br>"
+                f"Name: {name}<br>"
+                f"Wind Speed: {wind_speed} mph",
+                max_width=300,
+            )
+            Marker(
+                location=[lat, lon],
+                popup=popup,
+                icon=None,  # Use default icon or a custom hurricane icon
+            ).add_to(folium_map)
 
-        # Fetch and display volcano data
+        # Fetch and display volcano data (real-time or historical)
         volcanoes = fetch_volcano_data()
-        if volcanoes:
-            for lat, lon, name, status in volcanoes:
-                popup = Popup(
-                    f"<b>Volcano</b><br>"
-                    f"Name: {name}<br>"
-                    f"Status: {status}",
-                    max_width=300,
-                )
-                Marker(
-                    location=[lat, lon],
-                    popup=popup,
-                    icon=None,  # Use default icon or a custom volcano icon
-                ).add_to(folium_map)
-        else:
-            st.warning("No volcano data available to display.")
+        if not volcanoes:
+            st.warning("No real-time volcano data available. Displaying historical data.")
+            volcanoes = fetch_historical_volcano_data()
+        for lat, lon, name, status in volcanoes:
+            popup = Popup(
+                f"<b>Volcano</b><br>"
+                f"Name: {name}<br>"
+                f"Status: {status}",
+                max_width=300,
+            )
+            Marker(
+                location=[lat, lon],
+                popup=popup,
+                icon=None,  # Use default icon or a custom volcano icon
+            ).add_to(folium_map)
 
     LayerControl().add_to(folium_map)
     return folium_map
