@@ -1,6 +1,6 @@
 import streamlit as st
 from sqlite3 import connect
-from folium import Map, Marker, Popup
+from folium import Map, Marker, Popup  # Explicitly import Marker
 from folium.plugins import HeatMap, TimestampedGeoJson
 from folium.map import LayerControl
 from datetime import datetime, timedelta
