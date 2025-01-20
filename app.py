@@ -205,12 +205,30 @@ def fetch_flood_data():
         data = response.json()
         floods = []
         for disaster in data['data']:
-            lat = disaster['fields']['country'][0]['location']['lat']
-            lon = disaster['fields']['country'][0]['location']['lon']
-            severity = disaster['fields']['status']
-            location = disaster['fields']['country'][0]['name']
-            time = disaster['fields']['date']['created']
-            floods.append((lat, lon, severity, location, time))
+            try:
+                # Check if the disaster has a country and location
+                if 'country' in disaster['fields'] and disaster['fields']['country']:
+                    country_data = disaster['fields']['country'][0]
+                    if 'location' in country_data:
+                        lat = country_data['location']['lat']
+                        lon = country_data['location']['lon']
+                    else:
+                        # Skip if location data is missing
+                        continue
+                else:
+                    # Skip if country data is missing
+                    continue
+
+                # Extract other fields
+                severity = disaster['fields'].get('status', 'Unknown')
+                location = country_data.get('name', 'Unknown location')
+                time = disaster['fields']['date'].get('created', 'Unknown time')
+
+                floods.append((lat, lon, severity, location, time))
+            except KeyError as e:
+                # Log the error and skip this disaster entry
+                st.warning(f"Skipping a disaster entry due to missing data: {e}")
+                continue
         return floods
     else:
         st.error("Failed to fetch flood data.")
@@ -268,19 +286,22 @@ def generate_heatmap(show_disasters=False):
 
         # Fetch and display flood data
         floods = fetch_flood_data()
-        for lat, lon, severity, location, time in floods:
-            popup = Popup(
-                f"<b>Flood</b><br>"
-                f"Severity: {severity}<br>"
-                f"Location: {location}<br>"
-                f"Time: {time}",
-                max_width=300,
-            )
-            Marker(
-                location=[lat, lon],
-                popup=popup,
-                icon=None,  # Use default icon or a custom flood icon
-            ).add_to(folium_map)
+        if floods:  # Only add flood markers if data is available
+            for lat, lon, severity, location, time in floods:
+                popup = Popup(
+                    f"<b>Flood</b><br>"
+                    f"Severity: {severity}<br>"
+                    f"Location: {location}<br>"
+                    f"Time: {time}",
+                    max_width=300,
+                )
+                Marker(
+                    location=[lat, lon],
+                    popup=popup,
+                    icon=None,  # Use default icon or a custom flood icon
+                ).add_to(folium_map)
+        else:
+            st.warning("No flood data available to display.")
 
     LayerControl().add_to(folium_map)
     return folium_map
